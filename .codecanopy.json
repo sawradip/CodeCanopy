@@ -1,0 +1,17 @@
+{
+    "ignore": [
+      "node_modules",
+      ".git", 
+      "dist",
+      "build",
+      ".next",
+      "__pycache__",
+      "*.egg-info",
+      ".pytest_cache",
+      ".mypy_cache"
+    ],
+    "default_depth": 3,
+    "header_format": "=== {path} ===",
+    "max_file_size": "100KB",
+    "focus_dirs": ["src", "lib"]
+}
