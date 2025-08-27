@@ -1,11 +1,12 @@
 """Shared utilities for CodeCanopy."""
 
 import fnmatch
+import glob
 import os
-import pathspec
 from pathlib import Path
 from typing import List, Set
 
+import pathspec
 
 def should_ignore(path: Path, ignore_patterns: List[str]) -> bool:
     """Check if path should be ignored based on patterns."""
@@ -85,52 +86,6 @@ def format_header(template: str, path: Path, base_path: Path = None) -> str:
         filename=path.name,
         dir=parent_dir.replace("\\", "/") if parent_dir else "",
     )
-
-
-def collect_files(
-    patterns: List[str], exclude_patterns: List[str] = None, base_path: Path = None
-) -> List[Path]:
-    """Collect files matching patterns, excluding specified patterns."""
-    if base_path is None:
-        base_path = Path.cwd()
-
-    exclude_patterns = exclude_patterns or []
-    files = set()
-
-    for pattern in patterns:
-        # Handle different pattern types
-        if "*" in pattern or "?" in pattern or "[" in pattern:
-            # Glob pattern - handle both relative and absolute
-            try:
-                if os.path.isabs(pattern):
-                    # Absolute pattern
-                    for file_path in Path("/").glob(pattern.lstrip("/")):
-                        if file_path.is_file() and not should_ignore(
-                            file_path, exclude_patterns
-                        ):
-                            files.add(file_path)
-                else:
-                    # Relative pattern
-                    for file_path in base_path.glob(pattern):
-                        if file_path.is_file() and not should_ignore(
-                            file_path, exclude_patterns
-                        ):
-                            files.add(file_path)
-            except (OSError, ValueError) as e:
-                # Skip invalid patterns
-                continue
-        else:
-            # Direct file path
-            if os.path.isabs(pattern):
-                file_path = Path(pattern)
-            else:
-                file_path = base_path / pattern
-
-            if file_path.exists() and file_path.is_file():
-                if not should_ignore(file_path, exclude_patterns):
-                    files.add(file_path)
-
-    return sorted(files)
 
 
 def is_text_file(path: Path, max_check_bytes: int = 8192) -> bool:

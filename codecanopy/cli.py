@@ -85,58 +85,89 @@ def tree(focus, ignore, depth, no_files, config, path):
 
 
 @main.command()
-@click.argument("patterns", nargs=-1, required=True)
+@click.argument("patterns", nargs=-1, required=False)  # Made optional
 @click.option(
     "--exclude",
     multiple=True,
-    help="Exclude file patterns. Can be used multiple times.",
+    help="Exclude file patterns (adds to config excludes). Can be used multiple times.",
+)
+@click.option(
+    "--no-ignore", 
+    is_flag=True, 
+    help="Ignore default excludes from config"
 )
 @click.option(
     "--header", help="Header format template. Available: {path}, {filename}, {dir}"
 )
 @click.option("--no-headers", is_flag=True, help="Skip file headers")
 @click.option("--max-size", help="Skip files larger than size (e.g., 100KB, 1MB)")
-@click.option("--config", help="Config file path (default: .codecanopy.json)")
 @click.option(
-    "--base-path", help="Base path for relative file paths (default: current directory)"
+    "--max-lines", 
+    type=int, 
+    help="Truncate files to max lines (per file)"
 )
-def cat(patterns, exclude, header, no_headers, max_size, config, base_path):
+@click.option(
+    "--max-output", 
+    help="Stop processing when total output exceeds size (e.g., 10MB)"
+)
+@click.option(
+    "--truncate-mode", 
+    type=click.Choice(["head", "tail", "middle"]), 
+    default="head",
+    help="How to truncate large files (default: head)"
+)
+@click.option("--config", help="Config file path (default: .codecanopy.json)")
+@click.argument(
+    "base_path",
+    type=click.Path(
+        exists=True,       # Must exist
+        file_okay=False,   # Don't allow files
+        dir_okay=True,     # Allow directories only
+        readable=True,     # Must be readable
+        resolve_path=True, # Convert to absolute path
+        path_type=Path,    # Return as pathlib.Path object
+    ),
+    default=".",
+    required=False,
+)
+def cat(patterns, exclude, no_ignore, header, no_headers, max_size, max_lines, max_output, truncate_mode, config, base_path):
     """Show file contents with headers.
 
-    PATTERNS: File patterns to include (supports glob patterns)
+    PATTERNS: File patterns to include (supports glob patterns). 
+              If no patterns provided, defaults to all files recursively.
+    BASE_PATH: Directory to search in (defaults to current directory).
 
     Examples:
-      codecanopy cat "src/**/*.py"
-      codecanopy cat "*.js" "*.ts" --exclude "*test*"
-      codecanopy cat file1.py file2.py --header "// {filename}"
-      codecanopy cat "**/*.md" --max-size 50KB --no-headers
+      codecanopy cat                        # Show all files in current directory
+      codecanopy cat /path/to/project       # Show all files in specified directory
+      codecanopy cat . "src/**/*.py"        # Show Python files in src/
+      codecanopy cat /project "*.js" "*.ts" # Show JS/TS files in /project
+      codecanopy cat . "**/*" --exclude "*test*"  # All files, exclude tests
     """
 
     try:
-        # Validate base path
-        if base_path:
-            base_path = Path(base_path).resolve()
-            if not base_path.exists() or not base_path.is_dir():
-                click.echo(
-                    f"Error: Base path '{base_path}' does not exist or is not a directory.",
-                    err=True,
-                )
-                sys.exit(1)
-        else:
-            base_path = Path.cwd()
-
-        # Validate patterns
-        if not patterns:
-            click.echo("Error: No file patterns specified.", err=True)
-            sys.exit(1)
-
+        # base_path is now automatically validated and converted by Click
+        # No need for manual validation since Click handles it
+        
         # Load configuration
         cfg = Config(config)
 
+        # Handle default patterns - if no patterns provided, show all files recursively
+        if not patterns:
+            patterns = ["**/*"]
+
+        # Handle exclude patterns
+        if no_ignore:
+            # Only use user-provided excludes
+            exclude_patterns = list(exclude) if exclude else []
+        else:
+            # Combine config excludes with user excludes (standard behavior)
+            config_excludes = cfg.get("ignore", [])
+            user_excludes = list(exclude) if exclude else []
+            exclude_patterns = config_excludes + user_excludes
+
         # Generate output
         generator = CatGenerator(cfg)
-
-        exclude_patterns = list(exclude) if exclude else None
 
         result = generator.generate(
             patterns=list(patterns),
@@ -144,6 +175,9 @@ def cat(patterns, exclude, header, no_headers, max_size, config, base_path):
             header_format=header,
             show_headers=not no_headers,
             max_file_size=max_size,
+            max_lines=max_lines,
+            max_output=max_output,
+            truncate_mode=truncate_mode,
             base_path=base_path,
         )
 
@@ -155,6 +189,7 @@ def cat(patterns, exclude, header, no_headers, max_size, config, base_path):
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
+
 
 
 @main.command()

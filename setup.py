@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="codecanopy",
-    version="0.1.0",
+    version="0.1.1",
     author="Sawradip Saha",
     author_email="sawradip0@gmail.com",
     description="Give LLMs perfect context about your codebase",
